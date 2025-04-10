@@ -62,39 +62,67 @@ export async function POST(req: NextRequest) {
     const user = await upsertUser(chatId);
     if (!user) {
       console.error(`User upsert failed for chat ${chatId}`);
-      await tg(chatId, "خطا در ثبت کاربر");
+      await tg(chatId, "🚫 خطا در ثبت کاربر");
       return NextResponse.json({ status: "ok" });
     }
     if (user.usageCount >= 400) {
       console.log(`Usage limit reached for chat ${chatId}: ${user.usageCount}`);
-      await tg(chatId, "سقف مصرف ماهانه پر شده");
+      await tg(chatId, "⛔ سقف مصرف ماهانه پر شده");
       return NextResponse.json({ status: "ok" });
     }
 
     if (/^\/start/i.test(text)) {
       console.log("Handling /start command");
-      await tg(chatId, "سلام! پیام بده یا گزینه‌ها را انتخاب کن", menu());
+      await tg(
+        chatId,
+        `
+🌟 *سلام به ربات سخن‌نگار خوش اومدی!* 🌟
+اینجا یه ربات هوش مصنوعی باحاله که می‌تونی باهاش چت کنی و سوال بپرسی! 😍
+
+*دکمه‌ها چیکار می‌کنن؟* 👇
+- 🌱 *شروع چت جدید*: یه گفتگوی تازه شروع می‌کنه.
+- 📺 *دنبالم کن تو یوتیوب*: کانالم رو ببین و فالو کن!
+- 📝 *خلاصه ۱۰۰*: ۱۰۰ پیام آخرت رو خلاصه می‌کنه.
+- 📜 *خلاصه همه*: کل چتات رو خلاصه می‌کنه.
+- ❓ *راهنما*: لیست دکمه‌ها رو نشون می‌ده.
+
+لطفاً کانالم رو تو یوتیوب فالو کن: [سخن‌نگار](https://www.youtube.com/@pishnahadebehtar) 🙏✨
+پیام بده یا دکمه بزن و لذت ببر! 🚀
+      `,
+        menu()
+      );
       return NextResponse.json({ status: "ok" });
     }
     if (/^\/help/i.test(text)) {
       console.log("Handling /help command");
       await tg(
         chatId,
-        "/start\n/newchat\n/summary100\n/summaryall\n/youtube",
+        `
+❓ *راهنمای ربات سخن‌نگار* ❓
+- 🌱 شروع چت جدید: /newchat
+- 📺 دنبالم کن تو یوتیوب: /youtube
+- 📝 خلاصه ۱۰۰: /summary100
+- 📜 خلاصه همه: /summaryall
+- ❓ راهنما: /help
+      `,
         menu()
       );
       return NextResponse.json({ status: "ok" });
     }
     if (/^\/youtube/i.test(text)) {
       console.log("Handling /youtube command");
-      await tg(chatId, "کانال: https://t.me/sokhannegar_bot", menu());
+      await tg(
+        chatId,
+        "📺 کانالم تو یوتیوب: https://www.youtube.com/@pishnahadebehtar",
+        menu()
+      );
       return NextResponse.json({ status: "ok" });
     }
     if (/^\/newchat/i.test(text)) {
       console.log("Handling /newchat command");
       await finishSessions(chatId);
       await createSession(chatId, "");
-      await tg(chatId, "چت جدید آغاز شد", menu());
+      await tg(chatId, "🌱 چت جدید آغاز شد", menu());
       return NextResponse.json({ status: "ok" });
     }
     if (/^\/summary(all|100)/i.test(text)) {
@@ -105,13 +133,13 @@ export async function POST(req: NextRequest) {
       const sess = await getActive(chatId);
       if (!sess) {
         console.error(`No active session for chat ${chatId} during summary`);
-        await tg(chatId, "خطا در خلاصه‌سازی");
+        await tg(chatId, "🚫 خطا در خلاصه‌سازی");
         return NextResponse.json({ status: "ok" });
       }
       await db.updateDocument(DB_ID, SESSIONS_COLLECTION, sess.$id, {
         context: sum,
       });
-      await tg(chatId, "خلاصه ایجاد شد", menu());
+      await tg(chatId, "📜 خلاصه ایجاد شد", menu());
       return NextResponse.json({ status: "ok" });
     }
 
@@ -119,7 +147,7 @@ export async function POST(req: NextRequest) {
     const sess = await getActive(chatId);
     if (!sess) {
       console.error(`No active session for chat ${chatId}`);
-      await tg(chatId, "خطا در شروع چت");
+      await tg(chatId, "🚫 خطا در شروع چت");
       return NextResponse.json({ status: "ok" });
     }
     await saveChat(sess.$id, chatId, "user", text);
@@ -134,7 +162,7 @@ export async function POST(req: NextRequest) {
     console.log(`Sending prompt to AI: ${prompt.slice(0, 100)}...`);
     const aiResponse = await askAI(prompt).catch((e) => {
       console.error(`AI processing error: ${String(e)}`);
-      return "پاسخگویی با خطا مواجه شد، لطفاً دوباره تلاش کنید";
+      return "🚫 پاسخگویی با خطا مواجه شد، لطفاً دوباره تلاش کنید";
     });
 
     console.log(`AI response received: ${aiResponse.slice(0, 100)}...`);
@@ -147,7 +175,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ status: "ok" });
   } catch (e) {
     console.error(`Main execution error: ${String(e)}`);
-    await tg(chatId, "خطایی رخ داد، لطفاً دوباره تلاش کنید", menu());
+    await tg(chatId, "🚫 خطایی رخ داد، لطفاً دوباره تلاش کنید", menu());
     return NextResponse.json({ status: "ok" });
   }
 
@@ -385,9 +413,9 @@ export async function POST(req: NextRequest) {
   } {
     return {
       keyboard: [
-        [{ text: "/newchat" }, { text: "/youtube" }],
-        [{ text: "/summary100" }, { text: "/summaryall" }],
-        [{ text: "/help" }],
+        [{ text: "🌱 شروع چت جدید" }, { text: "📺 دنبالم کن تو یوتیوب" }],
+        [{ text: "📝 خلاصه ۱۰۰" }, { text: "📜 خلاصه همه" }],
+        [{ text: "❓ راهنما" }],
       ],
       resize_keyboard: true,
     };
