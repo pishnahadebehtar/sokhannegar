@@ -1,9 +1,17 @@
 // app/api/telegram/route.ts
 import { NextRequest, NextResponse } from "next/server";
 
+// Define a custom error type for fetch errors
+interface FetchError extends Error {
+  cause?: {
+    code?: string;
+    errno?: number;
+    syscall?: string;
+  };
+}
+
 export async function POST(req: NextRequest) {
   try {
-    // Parse the incoming Telegram update
     let body;
     try {
       body = await req.json();
@@ -37,7 +45,6 @@ export async function POST(req: NextRequest) {
     const text = (message.text || "").trim();
     console.log(`Processing chat ${chatId}: "${text}"`);
 
-    // Handle /start command
     if (/^\/start/i.test(text)) {
       console.log("Handling /start command");
       await sendTelegramMessage(
@@ -85,11 +92,23 @@ async function sendTelegramMessage(
     const responseText = await response.text();
     console.log(`Telegram response: ${response.status} - ${responseText}`);
     if (!response.ok) {
-      throw new Error(`Telegram API error: ${responseText}`);
+      throw new Error(
+        `Telegram API error: ${response.status} - ${responseText}`
+      );
     }
-  } catch (error) {
-    console.error(`Telegram send error: ${String(error)}`);
-    throw error;
+  } catch (error: unknown) {
+    // Cast error to FetchError if it matches
+    const fetchError = error as FetchError;
+    console.error(
+      `Telegram send error: ${String(fetchError)} - Cause: ${
+        fetchError.cause ? JSON.stringify(fetchError.cause) : "unknown"
+      }`
+    );
+    throw new Error(
+      `Fetch failed: ${String(fetchError)} - ${
+        fetchError.cause ? JSON.stringify(fetchError.cause) : "no cause"
+      }`
+    );
   }
 }
 
