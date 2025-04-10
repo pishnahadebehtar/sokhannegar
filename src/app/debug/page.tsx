@@ -11,12 +11,11 @@ export default function DebugPage() {
   useEffect(() => {
     const fetchDebugData = async () => {
       try {
-        // Sample Telegram update payload (e.g., /start command)
         const samplePayload = {
-          update_id: 5778138239,
+          update_id: 123456789,
           message: {
             chat: {
-              id: 987654321, // Replace with your Telegram chat ID if you have one
+              id: 5778138239, // Replace with your actual chat ID
               type: "private",
             },
             text: "/start",
@@ -31,8 +30,8 @@ export default function DebugPage() {
           body: JSON.stringify(samplePayload),
         });
 
-        const data = await res.json();
-        setResponse(JSON.stringify(data, null, 2)); // Pretty-print JSON
+        const text = await res.text();
+        setResponse(`Status: ${res.status} ${res.statusText}\n\n${text}`);
       } catch (e) {
         setError(`Error: ${String(e)}`);
       } finally {
