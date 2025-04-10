@@ -13,7 +13,7 @@ export default function DebugPage() {
       try {
         // Sample Telegram update payload (e.g., /start command)
         const samplePayload = {
-          update_id: 123456789,
+          update_id: 5778138239,
           message: {
             chat: {
               id: 987654321, // Replace with your Telegram chat ID if you have one

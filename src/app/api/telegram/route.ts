@@ -395,15 +395,17 @@ export async function POST(req: NextRequest) {
           body: JSON.stringify(requestBody),
         }
       );
-      console.log(`Telegram response status: ${r.status} ${r.statusText}`);
+      const responseText = await r.text();
+      console.log(
+        `Telegram response: ${r.status} ${r.statusText} - ${responseText}`
+      );
       if (!r.ok) {
-        const errorText = await r.text();
-        console.error(
-          `Telegram API error: ${r.status} ${r.statusText} - ${errorText}`
-        );
+        throw new Error(`Telegram API error: ${responseText}`);
       }
     } catch (e) {
       console.error(`tg error: ${String(e)}`);
+      // Return error to API response for debugging
+      throw new Error(`Failed to send to Telegram: ${String(e)}`);
     }
   }
 
