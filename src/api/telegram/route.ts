@@ -9,7 +9,6 @@ import {
 } from "appwrite";
 
 export async function POST(req: NextRequest) {
-  // Environment variables from .env.local
   const TELEGRAM_TOKEN =
     process.env.TELEGRAM_TOKEN ||
     "7797121309:AAHETVcA0lSWjEvw0YjB4Dz9zwcUvI3LcxE";
@@ -26,21 +25,22 @@ export async function POST(req: NextRequest) {
   const SESSIONS_COLLECTION = "67f64e0800239fe47ea6";
   const CHATS_COLLECTION = "67f64e850019bd0f6c97";
 
-  // Initialize Appwrite client
   const client = new AppwriteClient()
     .setEndpoint(APPWRITE_ENDPOINT)
     .setProject(APPWRITE_PROJECT_ID);
 
   const db = new AppwriteDatabases(client);
 
-  // Parse request body
   let body: Record<string, unknown>;
   try {
     body = await req.json();
     console.log(`Parsed Telegram update: ${JSON.stringify(body)}`);
   } catch (e) {
     console.error(`Failed to parse request body: ${String(e)}`);
-    body = {};
+    return NextResponse.json({
+      status: "error",
+      message: "Invalid request body",
+    });
   }
 
   const message = body.message as
@@ -61,61 +61,31 @@ export async function POST(req: NextRequest) {
   try {
     const user = await upsertUser(chatId);
     if (!user) {
-      console.error(`User upsert failed for chat ${chatId}`);
       await tg(chatId, "🚫 خطا در ثبت کاربر");
       return NextResponse.json({ status: "ok" });
     }
     if (user.usageCount >= 400) {
-      console.log(`Usage limit reached for chat ${chatId}: ${user.usageCount}`);
       await tg(chatId, "⛔ سقف مصرف ماهانه پر شده");
       return NextResponse.json({ status: "ok" });
     }
 
     if (/^\/start/i.test(text)) {
       console.log("Handling /start command");
-      await tg(
-        chatId,
-        `
-🌟 *سلام به ربات سخن‌نگار خوش اومدی!* 🌟
-اینجا یه ربات هوش مصنوعی باحاله که می‌تونی باهاش چت کنی و سوال بپرسی! 😍
-
-*دکمه‌ها چیکار می‌کنن؟* 👇
-- 🌱 *شروع چت جدید*: یه گفتگوی تازه شروع می‌کنه.
-- 📺 *دنبالم کن تو یوتیوب*: کانالم رو ببین و فالو کن!
-- 📝 *خلاصه ۱۰۰*: ۱۰۰ پیام آخرت رو خلاصه می‌کنه.
-- 📜 *خلاصه همه*: کل چتات رو خلاصه می‌کنه.
-- ❓ *راهنما*: لیست دکمه‌ها رو نشون می‌ده.
-
-لطفاً کانالم رو تو یوتیوب فالو کن: [سخن‌نگار](https://www.youtube.com/@pishnahadebehtar) 🙏✨
-پیام بده یا دکمه بزن و لذت ببر! 🚀
-      `,
-        menu()
-      );
+      await tg(chatId, "🌟 سلام! پیام بده یا گزینه‌ها را انتخاب کن", menu());
       return NextResponse.json({ status: "ok" });
     }
     if (/^\/help/i.test(text)) {
       console.log("Handling /help command");
       await tg(
         chatId,
-        `
-❓ *راهنمای ربات سخن‌نگار* ❓
-- 🌱 شروع چت جدید: /newchat
-- 📺 دنبالم کن تو یوتیوب: /youtube
-- 📝 خلاصه ۱۰۰: /summary100
-- 📜 خلاصه همه: /summaryall
-- ❓ راهنما: /help
-      `,
+        "❓ /start\n/newchat\n/summary100\n/summaryall\n/youtube",
         menu()
       );
       return NextResponse.json({ status: "ok" });
     }
     if (/^\/youtube/i.test(text)) {
       console.log("Handling /youtube command");
-      await tg(
-        chatId,
-        "📺 کانالم تو یوتیوب: https://www.youtube.com/@pishnahadebehtar",
-        menu()
-      );
+      await tg(chatId, "📺 کانال: https://t.me/sokhannegar_bot", menu());
       return NextResponse.json({ status: "ok" });
     }
     if (/^\/newchat/i.test(text)) {
@@ -132,7 +102,6 @@ export async function POST(req: NextRequest) {
       const sum = await summarize(chats);
       const sess = await getActive(chatId);
       if (!sess) {
-        console.error(`No active session for chat ${chatId} during summary`);
         await tg(chatId, "🚫 خطا در خلاصه‌سازی");
         return NextResponse.json({ status: "ok" });
       }
@@ -146,7 +115,6 @@ export async function POST(req: NextRequest) {
     console.log("Processing as chat message");
     const sess = await getActive(chatId);
     if (!sess) {
-      console.error(`No active session for chat ${chatId}`);
       await tg(chatId, "🚫 خطا در شروع چت");
       return NextResponse.json({ status: "ok" });
     }
@@ -157,15 +125,13 @@ export async function POST(req: NextRequest) {
     history.forEach((c) => {
       prompt += `${c.role === "user" ? "کاربر" : "دستیار"}: ${c.content}\n`;
     });
-    prompt += `\nپیام کاربر:\n${text}\nپاسخ به فارسی`;
+    prompt += `\nپیام کاربر:\n${text}\nپاسخ کوتاه به فارسی (حداکثر ۱۰۰ کلمه)`;
 
-    console.log(`Sending prompt to AI: ${prompt.slice(0, 100)}...`);
     const aiResponse = await askAI(prompt).catch((e) => {
       console.error(`AI processing error: ${String(e)}`);
-      return "🚫 پاسخگویی با خطا مواجه شد، لطفاً دوباره تلاش کنید";
+      return "🚫 پاسخگویی کند است، لطفاً بعداً تلاش کنید";
     });
 
-    console.log(`AI response received: ${aiResponse.slice(0, 100)}...`);
     await saveChat(sess.$id, chatId, "assistant", aiResponse);
     await db.updateDocument(DB_ID, USERS_COLLECTION, user.$id, {
       usageCount: user.usageCount + 1,
@@ -179,7 +145,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ status: "ok" });
   }
 
-  // Helper Functions
   async function upsertUser(tid: string): Promise<Models.Document | null> {
     const month = new Date().toISOString().slice(0, 7);
     try {
@@ -331,7 +296,7 @@ export async function POST(req: NextRequest) {
     const concat = chats
       .map((c) => `${c.role === "user" ? "کاربر" : "دستیار"}: ${c.content}`)
       .join("\n");
-    return await askAI(`متن زیر را خلاصه کن به فارسی:\n${concat}`);
+    return await askAI(`متن زیر را خلاصه کن زیر ۱۰۰ کلمه فارسی:\n${concat}`);
   }
 
   async function askAI(prompt: string): Promise<string> {
@@ -340,11 +305,8 @@ export async function POST(req: NextRequest) {
       const requestBody = {
         model: "openrouter/quasar-alpha",
         messages: [{ role: "user", content: prompt }],
+        max_tokens: 50,
       };
-      console.log(
-        `Sending request to OpenRouter: ${JSON.stringify(requestBody)}`
-      );
-
       const r = await fetch("https://openrouter.ai/api/v1/chat/completions", {
         method: "POST",
         headers: {
@@ -353,20 +315,17 @@ export async function POST(req: NextRequest) {
         },
         body: JSON.stringify(requestBody),
       });
-
-      console.log(`OpenRouter response status: ${r.status} ${r.statusText}`);
+      const responseText = await r.text();
+      console.log(
+        `OpenRouter response: ${r.status} ${r.statusText} - ${responseText}`
+      );
       if (!r.ok) {
-        const errorText = await r.text();
-        throw new Error(`HTTP ${r.status}: ${r.statusText} - ${errorText}`);
+        throw new Error(`HTTP ${r.status}: ${responseText}`);
       }
-
-      const d = await r.json();
-      console.log(`OpenRouter response data: ${JSON.stringify(d)}`);
-
+      const d = JSON.parse(responseText);
       if (!d.choices || !d.choices[0] || !d.choices[0].message) {
-        throw new Error("Invalid response format: no choices available");
+        throw new Error("Invalid response format");
       }
-
       return d.choices[0].message.content || "پاسخی نبود";
     } catch (e) {
       console.error(`askAI error: ${String(e)}`);
@@ -395,15 +354,16 @@ export async function POST(req: NextRequest) {
           body: JSON.stringify(requestBody),
         }
       );
-      console.log(`Telegram response status: ${r.status} ${r.statusText}`);
+      const responseText = await r.text();
+      console.log(
+        `Telegram response: ${r.status} ${r.statusText} - ${responseText}`
+      );
       if (!r.ok) {
-        const errorText = await r.text();
-        console.error(
-          `Telegram API error: ${r.status} ${r.statusText} - ${errorText}`
-        );
+        throw new Error(`Telegram API error: ${responseText}`);
       }
     } catch (e) {
       console.error(`tg error: ${String(e)}`);
+      throw e;
     }
   }
 
