@@ -6,28 +6,27 @@ import { SessionDoc, ChatDoc } from "../../../../types/types";
 // GET /api/sessions/[sessionId]
 // Fetches the entire chat history for a specific session
 export async function GET(
-  req: NextRequest,
+  request: NextRequest,
   { params }: { params: { sessionId: string } }
 ) {
   try {
-    // Authenticate user
-    const { userId } = await auth();
-    if (!userId) {
-      console.error(
-        `GET /api/sessions/${params.sessionId}: No user authenticated`
-      );
-      return NextResponse.json(
-        { message: "لطفاً ابتدا وارد شوید." },
-        { status: 401 }
-      );
-    }
-
+    // Destructure sessionId from params
     const { sessionId } = params;
     if (!sessionId) {
       console.error("GET /api/sessions/[sessionId]: Missing sessionId");
       return NextResponse.json(
         { message: "شناسه جلسه مورد نیاز است." },
         { status: 400 }
+      );
+    }
+
+    // Authenticate user
+    const { userId } = await auth();
+    if (!userId) {
+      console.error(`GET /api/sessions/${sessionId}: No user authenticated`);
+      return NextResponse.json(
+        { message: "لطفاً ابتدا وارد شوید." },
+        { status: 401 }
       );
     }
 
@@ -88,8 +87,10 @@ export async function GET(
     );
     return NextResponse.json({ sessionId, messages });
   } catch (e) {
+    // Use sessionId from params if defined, or fallback to params.sessionId
+    const sessionId = params?.sessionId || "unknown";
     console.error(
-      `GET /api/sessions/${params.sessionId}: Failed to fetch session:`,
+      `GET /api/sessions/${sessionId}: Failed to fetch session:`,
       e
     );
     return NextResponse.json(
