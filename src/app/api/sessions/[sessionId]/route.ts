@@ -1,16 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { db, Query } from "../../../../utils/appwrite";
-import { SessionDoc, ChatDoc } from "../../../../types/types";
+import { db, Query } from "@/utils/appwrite"; // Adjusted import path
+import { SessionDoc, ChatDoc } from "@/types/types";
 
 // GET /api/sessions/[sessionId]
 // Fetches the entire chat history for a specific session
 export async function GET(
   request: NextRequest,
-  { params }: { params: { sessionId: string } }
+  context: { params: Promise<{ sessionId: string }> } // Use Promise for params (Next.js 15.x)
 ) {
   try {
-    // Destructure sessionId from params
+    // Resolve params
+    const params = await context.params;
     const { sessionId } = params;
     if (!sessionId) {
       console.error("GET /api/sessions/[sessionId]: Missing sessionId");
@@ -87,8 +88,7 @@ export async function GET(
     );
     return NextResponse.json({ sessionId, messages });
   } catch (e) {
-    // Use sessionId from params if defined, or fallback to params.sessionId
-    const sessionId = params?.sessionId || "unknown";
+    const sessionId = (await context.params)?.sessionId || "unknown";
     console.error(
       `GET /api/sessions/${sessionId}: Failed to fetch session:`,
       e
